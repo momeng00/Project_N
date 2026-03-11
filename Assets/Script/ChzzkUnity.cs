@@ -225,107 +225,110 @@ public class ChzzkUnity : MonoBehaviour
 
     private void ParseMessage(object sender, MessageEventArgs e)
     {
-        try
+        UnityMainThread.wkr.AddJob(() =>
         {
-            IDictionary<string, object> data = JsonConvert.DeserializeObject<IDictionary<string, object>>(e.Data);
-            Debug.Log(e.Data);
-
-            JArray body;
-            JObject bodyObject;
-            Profile profile;
-            string profileText;
-            
-            //Cmd에 따라서
-            switch ((long)data["cmd"])
+            try
             {
-                case 0://HeartBeat Request
-                    //하트비트 응답해줌.
-                    socket.Send(HEARTBEAT_RESPONSE);
-                    //서버가 먼저 요청해서 응답했으면 타이머 초기화해도 괜찮음.
-                    timer = 0;
-                    break;
-                case 93101://Chat
-                    body = (JArray)data["bdy"];
-                    foreach (JToken jToken in body)
-                    {
-                        bodyObject = (JObject)jToken;
-                        //프로필이.... json이 아니라 string으로 들어옴.
-                        profileText = bodyObject["profile"]?.ToString();
-                        if (profileText != null)
+                IDictionary<string, object> data = JsonConvert.DeserializeObject<IDictionary<string, object>>(e.Data);
+                Debug.Log(e.Data);
+
+                JArray body;
+                JObject bodyObject;
+                Profile profile;
+                string profileText;
+
+                //Cmd에 따라서
+                switch ((long)data["cmd"])
+                {
+                    case 0://HeartBeat Request
+                           //하트비트 응답해줌.
+                        socket.Send(HEARTBEAT_RESPONSE);
+                        //서버가 먼저 요청해서 응답했으면 타이머 초기화해도 괜찮음.
+                        timer = 0;
+                        break;
+                    case 93101://Chat
+                        body = (JArray)data["bdy"];
+                        foreach (JToken jToken in body)
                         {
+                            bodyObject = (JObject)jToken;
+                            //프로필이.... json이 아니라 string으로 들어옴.
+                            profileText = bodyObject["profile"]?.ToString();
+                            if (profileText != null)
+                            {
+                                profileText = profileText.Replace("\\", "");
+                                profile = JsonUtility.FromJson<Profile>(profileText);
+                                onMessage?.Invoke(profile, bodyObject["msg"]?.ToString().Trim());
+                            }
+                        }
+
+                        break;
+                    case 93102://Donation & Subscription
+                        body = (JArray)data["bdy"];
+
+                        foreach (JToken jToken in body)
+                        {
+                            bodyObject = (JObject)jToken;
+
+                            //프로필 스트링 변환
+                            profileText = bodyObject["profile"].ToString();
                             profileText = profileText.Replace("\\", "");
                             profile = JsonUtility.FromJson<Profile>(profileText);
-                            onMessage?.Invoke(profile, bodyObject["msg"]?.ToString().Trim());
+
+                            var msgTypeCode = int.Parse(bodyObject["msgTypeCode"].ToString());
+                            //도네이션과 관련된 데이터는 extra
+                            string extraText = null;
+                            if (bodyObject.TryGetValue("extra", value: out JToken value))
+                            {
+                                extraText = value.ToString();
+                            }
+                            else if (bodyObject.TryGetValue("extras", out JToken value1))
+                            {
+                                extraText = value1.ToString();
+                            }
+
+                            extraText = extraText.Replace("\\", "");
+
+                            switch (msgTypeCode)
+                            {
+                                case 10: // Donation
+                                    var donation = JsonUtility.FromJson<DonationExtras>(extraText);
+                                    onDonation?.Invoke(profile, bodyObject["msg"].ToString(), donation);
+                                    break;
+                                case 11: // Subscription
+                                    var subscription = JsonUtility.FromJson<SubscriptionExtras>(extraText);
+                                    onSubscription?.Invoke(profile, subscription);
+                                    break;
+                                default:
+                                    Debug.LogError($"MessageTypeCode-{msgTypeCode} is not supported");
+                                    Debug.LogError(bodyObject.ToString());
+                                    break;
+                            }
                         }
-                    }
 
-                    break;
-                case 93102://Donation & Subscription
-                    body = (JArray)data["bdy"];
-
-                    foreach (JToken jToken in body)
-                    {
-                        bodyObject = (JObject)jToken;
-                        
-                        //프로필 스트링 변환
-                        profileText = bodyObject["profile"].ToString();
-                        profileText = profileText.Replace("\\", "");
-                        profile = JsonUtility.FromJson<Profile>(profileText);
-
-                        var msgTypeCode = int.Parse(bodyObject["msgTypeCode"].ToString());
-                        //도네이션과 관련된 데이터는 extra
-                        string extraText = null;
-                        if (bodyObject.TryGetValue("extra", value: out JToken value))
-                        {
-                            extraText = value.ToString();
-                        }
-                        else if (bodyObject.TryGetValue("extras", out JToken value1))
-                        {
-                            extraText = value1.ToString();
-                        }
-
-                        extraText = extraText.Replace("\\", "");
-
-                        switch (msgTypeCode)
-                        {
-                            case 10: // Donation
-                                var donation = JsonUtility.FromJson<DonationExtras>(extraText);
-                                onDonation?.Invoke(profile, bodyObject["msg"].ToString(), donation);
-                                break;
-                            case 11: // Subscription
-                                var subscription = JsonUtility.FromJson<SubscriptionExtras>(extraText);
-                                onSubscription?.Invoke(profile, subscription);
-                                break;
-                            default:
-                                Debug.LogError($"MessageTypeCode-{msgTypeCode} is not supported");
-                                Debug.LogError(bodyObject.ToString());
-                                break;
-                        }
-                    }
-
-                    break;
-                case 93006://Temporary Restrict 블라인드 처리된 메세지.
-                case 94008://Blocked Message(CleanBot) 차단된 메세지.
-                case 94201://Member Sync 멤버 목록 동기화.
-                case 10000://HeartBeat Response 하트비트 응답.
-                    break;
-                case 10100://Token ACC
-                    //Debug.Log(data["cmd"]);
-                    //Debug.Log(e.Data);
-                    onOpen?.Invoke();
-                    break;//Nothing to do
-                default:
-                    //내가 놓친 cmd가 있나?
-                    //Debug.Log(data["cmd"]);
-                    //Debug.Log(e.Data);
-                    break;
+                        break;
+                    case 93006://Temporary Restrict 블라인드 처리된 메세지.
+                    case 94008://Blocked Message(CleanBot) 차단된 메세지.
+                    case 94201://Member Sync 멤버 목록 동기화.
+                    case 10000://HeartBeat Response 하트비트 응답.
+                        break;
+                    case 10100://Token ACC
+                               //Debug.Log(data["cmd"]);
+                               //Debug.Log(e.Data);
+                        onOpen?.Invoke();
+                        break;//Nothing to do
+                    default:
+                        //내가 놓친 cmd가 있나?
+                        //Debug.Log(data["cmd"]);
+                        //Debug.Log(e.Data);
+                        break;
+                }
             }
-        }
 
-        catch (Exception er)
-        {
-            Debug.LogError(er.ToString());
-        }
+            catch (Exception er)
+            {
+                Debug.LogError(er.ToString());
+            }
+        });
     }
 
     private void CloseConnect(object sender, CloseEventArgs e)

@@ -1,7 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
+using static ChzzkUnity;
+using Random = UnityEngine.Random;
 
 /// <summary>
 /// 치지직 채팅에서 "!줄" 명령어로 참여자를 수집하고 랜덤 추첨하는 매니저
@@ -51,12 +54,28 @@ public class ChzzkParticipantManager : MonoBehaviour
     private Dictionary<string, GameObject> participantUIObjects = new Dictionary<string, GameObject>();
     private HashSet<string> subscribers = new HashSet<string>(); // 구독자 목록 관리
     private bool isRecruiting = false;
+    private int count = 1;
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.F1))
+        {
+            Profile dummy = new Profile();
+            dummy.nickname = $"{count} + 테스터";
+            dummy.userIdHash = $"{count}";
+            subscribers.Add(dummy.userIdHash);
+            AddParticipant(dummy);
+            count++;
+        }
 
+    }
     void Start()
     {
         InitializeChzzkClient();
     }
-
+    public Dictionary<string, ParticipantData> Participants
+    {
+        get { return participants; }
+    }
     /// <summary>
     /// 치지직 클라이언트 초기화
     /// </summary>
@@ -216,7 +235,7 @@ public class ChzzkParticipantManager : MonoBehaviour
         participantUIObjects[participant.userId] = uiObject;
 
         // ParticipantUI 컴포넌트에 데이터 전달
-        ParticipantUI uiComponent = uiObject.GetComponent<ParticipantUI>();
+        SimpleParticipantUI uiComponent = uiObject.GetComponent<SimpleParticipantUI>();
         if (uiComponent != null)
         {
             uiComponent.SetData(participant);
@@ -380,9 +399,10 @@ public class ChzzkParticipantManager : MonoBehaviour
 
         GameObject winnerUI = Instantiate(participantPrefab, winnerContainer);
 
-        ParticipantUI uiComponent = winnerUI.GetComponent<ParticipantUI>();
+        SimpleParticipantUI uiComponent = winnerUI.GetComponent<SimpleParticipantUI>();
         if (uiComponent != null)
         {
+            Debug.Log(winner.ToString());
             uiComponent.SetData(winner);
             uiComponent.SetAsWinner(true);
         }

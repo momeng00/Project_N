@@ -232,7 +232,7 @@ public class RecruitmentUIController : MonoBehaviour
     void OnClear()
     {
         PlaySound(buttonClickSound);
-        participantManager.ClearParticipants();
+        participantManager.ClearAll();
     }
 
     // ===== ParticipantManager 이벤트 핸들러 =====
