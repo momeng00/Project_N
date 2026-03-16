@@ -25,6 +25,9 @@ public class RecruitmentUIController : MonoBehaviour
     [Tooltip("복수 추첨 버튼")]
     public Button drawMultipleButton;
 
+    [Tooltip("확률 검증 버튼")]
+    public Button verifyProbabilityButton;
+
     [Tooltip("초기화 버튼")]
     public Button clearButton;
 
@@ -37,6 +40,26 @@ public class RecruitmentUIController : MonoBehaviour
 
     [Tooltip("복수 추첨 인원 입력 필드")]
     public TMP_InputField multipleDrawCountInput;
+
+    [Tooltip("확률 검증 횟수 입력 필드")]
+    public TMP_InputField verifyCountInput;
+
+    [Tooltip("확률 검증 결과 표시 텍스트")]
+    public TextMeshProUGUI verifyResultText;
+
+    [Header("옵션")]
+    [Tooltip("구독자만 참여 가능 (참여 제한)")]
+    public Toggle subscribersOnlyToggle;
+
+    [Tooltip("당첨자 제외 (추첨 시)")]
+    public Toggle excludeWinnersToggle;
+
+    [Tooltip("구독자만 추첨 (추첨 시)")]
+    public Toggle drawSubscribersOnlyToggle;
+
+    [Header("패널")]
+    [Tooltip("확률 검증 결과 패널 (선택사항)")]
+    public GameObject verifyResultPanel;
 
     [Header("애니메이션")]
     [Tooltip("추첨 애니메이션 지속 시간")]
@@ -111,9 +134,48 @@ public class RecruitmentUIController : MonoBehaviour
             drawMultipleButton.onClick.AddListener(OnDrawMultiple);
         }
 
+        if (verifyProbabilityButton != null)
+        {
+            verifyProbabilityButton.onClick.AddListener(OnVerifyProbability);
+        }
+
         if (clearButton != null)
         {
             clearButton.onClick.AddListener(OnClear);
+        }
+
+        // 구독자 전용 토글
+        if (subscribersOnlyToggle != null)
+        {
+            subscribersOnlyToggle.onValueChanged.AddListener(OnSubscribersOnlyToggled);
+
+            // 초기값 설정
+            if (participantManager != null)
+            {
+                subscribersOnlyToggle.isOn = participantManager.subscribersOnly;
+            }
+        }
+
+        // 당첨자 제외 토글
+        if (excludeWinnersToggle != null)
+        {
+            excludeWinnersToggle.onValueChanged.AddListener(OnExcludeWinnersToggled);
+
+            if (participantManager != null)
+            {
+                excludeWinnersToggle.isOn = participantManager.excludeWinners;
+            }
+        }
+
+        // 구독자만 추첨 토글
+        if (drawSubscribersOnlyToggle != null)
+        {
+            drawSubscribersOnlyToggle.onValueChanged.AddListener(OnDrawSubscribersOnlyToggled);
+
+            if (participantManager != null)
+            {
+                drawSubscribersOnlyToggle.isOn = participantManager.drawSubscribersOnly;
+            }
         }
 
         // ParticipantManager 이벤트 구독
@@ -136,8 +198,17 @@ public class RecruitmentUIController : MonoBehaviour
         // 참여자 수 업데이트
         if (participantCountText != null)
         {
-            int count = participantManager.GetParticipantCount();
-            participantCountText.text = $"참여자: {count}명";
+            int totalCount = participantManager.GetParticipantCount();
+            int eligibleCount = participantManager.GetEligibleCount();
+
+            if (totalCount != eligibleCount)
+            {
+                participantCountText.text = $"참여자: {totalCount}명 (추첨 대상: {eligibleCount}명)";
+            }
+            else
+            {
+                participantCountText.text = $"참여자: {totalCount}명";
+            }
         }
 
         // 상태 텍스트 업데이트
@@ -190,6 +261,11 @@ public class RecruitmentUIController : MonoBehaviour
             drawMultipleButton.interactable = !isRecruiting && participantCount > 1 && !isDrawing;
         }
 
+        if (verifyProbabilityButton != null)
+        {
+            verifyProbabilityButton.interactable = !isRecruiting && participantCount > 0 && !isDrawing;
+        }
+
         if (clearButton != null)
         {
             clearButton.interactable = !isRecruiting && !isDrawing;
@@ -232,7 +308,71 @@ public class RecruitmentUIController : MonoBehaviour
     void OnClear()
     {
         PlaySound(buttonClickSound);
-        participantManager.ClearAll();
+        participantManager.ClearParticipants();
+    }
+
+    void OnVerifyProbability()
+    {
+        PlaySound(buttonClickSound);
+
+        int count = 1000; // 기본값
+        if (verifyCountInput != null && int.TryParse(verifyCountInput.text, out int inputCount))
+        {
+            count = Mathf.Max(10, inputCount);
+        }
+
+        Debug.Log($"=== 확률 검증 시작: {count}회 추첨 ===");
+
+        // UI에 결과 표시
+        string result = participantManager.VerifyProbabilityWithText(count);
+        if (verifyResultText != null)
+        {
+            verifyResultText.text = result;
+        }
+
+        // 결과 패널 표시
+        if (verifyResultPanel != null)
+        {
+            verifyResultPanel.SetActive(true);
+        }
+    }
+
+    /// <summary>
+    /// 확률 검증 패널 닫기
+    /// </summary>
+    public void CloseVerifyPanel()
+    {
+        if (verifyResultPanel != null)
+        {
+            verifyResultPanel.SetActive(false);
+        }
+    }
+
+    void OnSubscribersOnlyToggled(bool isOn)
+    {
+        if (participantManager != null)
+        {
+            participantManager.subscribersOnly = isOn;
+            Debug.Log($"구독자 전용 참여: {(isOn ? "ON" : "OFF")}");
+        }
+    }
+
+    void OnExcludeWinnersToggled(bool isOn)
+    {
+        if (participantManager != null)
+        {
+            participantManager.excludeWinners = isOn;
+            Debug.Log($"당첨자 제외: {(isOn ? "ON" : "OFF")}");
+        }
+    }
+
+    void OnDrawSubscribersOnlyToggled(bool isOn)
+    {
+        if (participantManager != null)
+        {
+            participantManager.drawSubscribersOnly = isOn;
+            Debug.Log($"구독자만 추첨: {(isOn ? "ON" : "OFF")}");
+        }
     }
 
     // ===== ParticipantManager 이벤트 핸들러 =====
