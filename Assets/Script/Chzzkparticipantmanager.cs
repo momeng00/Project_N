@@ -12,6 +12,16 @@ using UnityEngine.Events;
 /// </summary>
 public class ChzzkParticipantManager : MonoBehaviour
 {
+    [Header("연결 방식")]
+    [Tooltip("OAuth 인증 사용 (권장)")]
+    public bool useOAuth = false;
+
+    [Header("치지직 연결 설정 (기존)")]
+    public ChzzkUnity chzzkClient;
+
+    [Header("OAuth 연결 설정 (새로운)")]
+    public ChzzkOAuthClient oauthClient;
+
     [Header("치지직 연결 설정")]
     [Tooltip("치지직 채널 ID")]
     public string channelId;
@@ -49,14 +59,15 @@ public class ChzzkParticipantManager : MonoBehaviour
     [Tooltip("당첨자 모니터 윈도우 (선택사항)")]
     public WinnerMonitor winnerMonitorWindow;
 
-    [Header("이벤트")]
+    [Header("디버그")]
+    [Tooltip("Profile 정보 자동 출력 (디버깅용)")]
+    public bool debugProfileInfo = false;
     public UnityEvent onRecruitmentStarted;
     public UnityEvent onRecruitmentEnded;
     public UnityEvent<ParticipantData> onParticipantAdded;
     public UnityEvent<ParticipantData> onWinnerSelected;
 
     // 내부 상태
-    private ChzzkUnity chzzkClient;
     private Dictionary<string, ParticipantData> participants = new Dictionary<string, ParticipantData>();
     public Dictionary<string, ParticipantData> Participants
     {
@@ -70,7 +81,44 @@ public class ChzzkParticipantManager : MonoBehaviour
 
     void Start()
     {
-        InitializeChzzkClient();
+        InitializeClient();
+    }
+
+    void InitializeClient()
+    {
+        if (useOAuth)
+        {
+            if (oauthClient == null)
+            {
+                Debug.LogError("OAuth Client가 설정되지 않았습니다!");
+                return;
+            }
+
+            Debug.Log("OAuth 방식으로 연결합니다.");
+            InitializeOAuthClient();
+        }
+        else
+        {
+            if (chzzkClient == null)
+            {
+                Debug.LogError("Chzzk Client가 설정되지 않았습니다!");
+                return;
+            }
+
+            Debug.Log("기존 방식으로 연결합니다.");
+            InitializeChzzkClient();
+        }
+    }
+    void InitializeOAuthClient()
+    {
+        // OAuth 이벤트 등록
+        oauthClient.onMessage.AddListener(OnChatMessageReceived);
+        oauthClient.onSubscription.AddListener(OnSubscriptionReceived);
+
+        Debug.Log("OAuth 클라이언트 이벤트 등록 완료");
+
+        // 사용자가 수동으로 로그인 버튼을 누를 때까지 대기
+        // oauthClient.StartOAuthLogin(); // 자동 로그인 원하면 주석 해제
     }
 
     /// <summary>
@@ -78,21 +126,9 @@ public class ChzzkParticipantManager : MonoBehaviour
     /// </summary>
     void InitializeChzzkClient()
     {
-        chzzkClient = GetComponent<ChzzkUnity>();
-        if (chzzkClient == null)
-        {
-            chzzkClient = gameObject.AddComponent<ChzzkUnity>();
-        }
-
-        chzzkClient.channel = channelId;
-
-        // 채팅 메시지 이벤트 구독
+        // 기존 방식 이벤트 등록
         chzzkClient.onMessage.AddListener(OnChatMessageReceived);
-
-        // 구독 이벤트 구독 (구독자 추적용)
         chzzkClient.onSubscription.AddListener(OnSubscriptionReceived);
-
-        // 치지직 연결
         chzzkClient.Connect();
     }
 
@@ -139,6 +175,17 @@ public class ChzzkParticipantManager : MonoBehaviour
     /// </summary>
     void OnChatMessageReceived(ChzzkUnity.Profile profile, string message)
     {
+        // 디버그 모드: Profile 정보 출력
+        if (debugProfileInfo)
+        {
+            DebugProfileInfo(profile);
+        }
+        else
+        {
+            // 간단한 역할 정보만 출력
+            Debug.Log($"[{profile.nickname}] 채팅: {message} | 역할: {profile.userRoleCode ?? "null"} | 배지: {profile.badge ?? "null"}");
+        }
+
         // 당첨자 모니터에 채팅 전달
         if (winnerMonitorWindow != null && participants.ContainsKey(profile.userIdHash))
         {
@@ -218,12 +265,69 @@ public class ChzzkParticipantManager : MonoBehaviour
 
     /// <summary>
     /// 구독자 여부 확인
-    /// onSubscription 이벤트로 수집한 구독자 목록에서 확인
+    /// 여러 방법으로 구독자 확인
     /// </summary>
     bool IsSubscriber(ChzzkUnity.Profile profile)
     {
-        // 구독자 목록에 있는지 확인
-        return subscribers.Contains(profile.userIdHash);
+        // 방법 1: onSubscription 이벤트로 수집한 구독자 목록에서 확인
+        if (subscribers.Contains(profile.userIdHash))
+        {
+            return true;
+        }
+
+        // 방법 2: userRoleCode로 확인
+        // 구독자는 특정 roleCode를 가짐
+        if (!string.IsNullOrEmpty(profile.userRoleCode))
+        {
+            // 알려진 구독자 역할 코드
+            string[] subscriberRoles = new string[]
+            {
+                "streaming_channel_manager",     // 채널 매니저
+                "streaming_chat_manager",        // 채팅 매니저  
+                "common_user_with_subscription", // 구독 중인 일반 사용자
+                "subscription_user",             // 구독 사용자
+                "subscriber"                     // 구독자
+            };
+
+            foreach (string role in subscriberRoles)
+            {
+                if (profile.userRoleCode.Contains(role))
+                {
+                    // 구독자로 자동 등록
+                    if (!subscribers.Contains(profile.userIdHash))
+                    {
+                        subscribers.Add(profile.userIdHash);
+                        Debug.Log($"[자동 감지] 구독자 추가: {profile.nickname} (역할: {profile.userRoleCode})");
+                    }
+                    return true;
+                }
+            }
+        }
+
+        // 방법 3: streamingProperty 확인 (있다면)
+        if (profile.streamingProperty != null)
+        {
+            // streamingProperty에 구독 정보가 있을 수 있음
+            // 정확한 구조는 ChzzkUnity 버전에 따라 다를 수 있음
+        }
+
+        // 방법 4: badge로 확인
+        if (!string.IsNullOrEmpty(profile.badge))
+        {
+            // 구독 배지가 있으면 구독자
+            if (profile.badge.Contains("subscription") ||
+                profile.badge.Contains("subscriber"))
+            {
+                if (!subscribers.Contains(profile.userIdHash))
+                {
+                    subscribers.Add(profile.userIdHash);
+                    Debug.Log($"[자동 감지] 구독자 추가: {profile.nickname} (배지: {profile.badge})");
+                }
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -233,6 +337,61 @@ public class ChzzkParticipantManager : MonoBehaviour
     {
         subscribers.Add(userId);
         Debug.Log($"수동으로 구독자 추가: {userId}");
+    }
+
+    /// <summary>
+    /// 닉네임으로 구독자 추가 (테스트용)
+    /// </summary>
+    public void AddSubscriberByNickname(string nickname)
+    {
+        foreach (var participant in participants.Values)
+        {
+            if (participant.nickname == nickname)
+            {
+                subscribers.Add(participant.userId);
+                participant.isSubscriber = true;
+                Debug.Log($"닉네임으로 구독자 추가: {nickname}");
+
+                // UI 업데이트
+                if (participantUIObjects.ContainsKey(participant.userId))
+                {
+                    var uiComponent = participantUIObjects[participant.userId].GetComponent<SimpleParticipantUI>();
+                    if (uiComponent != null)
+                    {
+                        uiComponent.SetData(participant);
+                    }
+                }
+                return;
+            }
+        }
+        Debug.LogWarning($"닉네임을 찾을 수 없음: {nickname}");
+    }
+
+    /// <summary>
+    /// Profile 정보 디버깅 (테스트용)
+    /// </summary>
+    public void DebugProfileInfo(ChzzkUnity.Profile profile)
+    {
+        Debug.Log("=== Profile 정보 ===");
+        Debug.Log($"userIdHash: {profile.userIdHash}");
+        Debug.Log($"nickname: {profile.nickname}");
+        Debug.Log($"userRoleCode: {profile.userRoleCode}");
+        Debug.Log($"badge: {profile.badge}");
+        Debug.Log($"title: {profile.title}");
+        Debug.Log($"verifiedMark: {profile.verifiedMark}");
+
+        if (profile.activityBadges != null && profile.activityBadges.Count > 0)
+        {
+            Debug.Log($"activityBadges: {string.Join(", ", profile.activityBadges)}");
+        }
+
+        if (profile.streamingProperty != null)
+        {
+            Debug.Log("streamingProperty: 존재함");
+        }
+
+        Debug.Log($"구독자 여부: {IsSubscriber(profile)}");
+        Debug.Log("==================");
     }
 
     /// <summary>

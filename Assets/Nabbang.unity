@@ -285,7 +285,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4d229d03b9e02e544a6528c780a45d90, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ChzzkParticipantManager
-  channelId: 9ffb4fca465c96f69499a315e8ffd653
+  channelId: 7083e83967817b39ca8e32ce8a91facc
   participantCommand: "!\uC904"
   allowDuplicateEntry: 0
   maxParticipants: 0
