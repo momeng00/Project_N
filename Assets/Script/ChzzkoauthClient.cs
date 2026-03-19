@@ -16,7 +16,7 @@ public class ChzzkoauthClient : MonoBehaviour
     [Header("네이버 애플리케이션 설정")]
     public string clientId = "YOUR_CLIENT_ID";
     public string clientSecret = "YOUR_CLIENT_SECRET";
-    public string redirectUri = "http://localhost:8080/callback";
+    public string redirectUri = "http://localhost:8080";
     public int localServerPort = 8080;
 
     [Header("치지직 채널 설정")]
@@ -60,11 +60,10 @@ public class ChzzkoauthClient : MonoBehaviour
 
     string BuildAuthUrl()
     {
-        string baseUrl = "https://nid.naver.com/oauth2.0/authorize";
+        string baseUrl = "GET https://chzzk.naver.com/account-interlock";
         string state = Guid.NewGuid().ToString("N");
 
         return $"{baseUrl}" +
-               $"?response_type=code" +
                $"&client_id={clientId}" +
                $"&redirect_uri={UnityWebRequest.EscapeURL(redirectUri)}" +
                $"&state={state}";
@@ -267,7 +266,23 @@ public class ChzzkoauthClient : MonoBehaviour
             tid = 1
         };
 
-        string json = JsonUtility.ToJson(connectData);
+        // ❌ JsonUtility는 대소문자 변환함!
+        // string json = JsonUtility.ToJson(connectData);
+
+        // ✅ 수동으로 JSON 생성 (대소문자 유지!)
+        string json = $@"{{
+            ""ver"":""2"",
+            ""cmd"":100,
+            ""svcid"":""game"",
+            ""cid"":""{channelId}"",
+            ""bdy"":{{
+                ""accTkn"":""{chatAccessToken}"",
+                ""auth"":""READ""
+            }},
+            ""tid"":1
+        }}";
+
+        Debug.Log($"[SEND] {json}");
         websocket.Send(json);
 
         Debug.Log("인증 메시지 전송 완료");
@@ -278,9 +293,14 @@ public class ChzzkoauthClient : MonoBehaviour
     /// </summary>
     void ProcessMessage(string data)
     {
+        // ✅ 모든 메시지 출력
+        Debug.Log($"[RECV] {data}");
+
         try
         {
             var message = JsonUtility.FromJson<ChzzkMessage>(data);
+
+            Debug.Log($"[CMD] {message.cmd}");
 
             switch (message.cmd)
             {
@@ -296,11 +316,16 @@ public class ChzzkoauthClient : MonoBehaviour
                 case 93103: // SUBSCRIPTION
                     HandleSubscription(message);
                     break;
+
+                default:
+                    Debug.Log($"알 수 없는 cmd: {message.cmd}");
+                    break;
             }
         }
         catch (Exception e)
         {
             Debug.LogError($"메시지 처리 에러: {e.Message}");
+            Debug.LogError($"원본 데이터: {data}");
         }
     }
 

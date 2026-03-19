@@ -285,10 +285,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4d229d03b9e02e544a6528c780a45d90, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ChzzkParticipantManager
-  clientType: 2
+  useOAuth: 0
   chzzkClient: {fileID: 795928060}
   oauthClient: {fileID: 1824525968}
-  officialClient: {fileID: 56467672}
+  channelId: 9ffb4fca465c96f69499a315e8ffd653
   participantCommand: "!\uC904"
   allowDuplicateEntry: 0
   maxParticipants: 0
@@ -320,69 +320,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 40442726}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 224.85571, y: 757.72516, z: 0}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -757.86163, y: 720.92676, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &56467671
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 56467673}
-  - component: {fileID: 56467672}
-  m_Layer: 0
-  m_Name: Official
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &56467672
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 56467671}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 29e6ec4e402ef6b459574c9ec0ae8654, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ChzzkOfficialClient
-  clientId: 03a562cc-6c49-4379-8ea5-d125b6d90127
-  clientSecret: YAYWO79gobVd6Wa-ktinQKSGIoAXTMObMP5W5RU633o
-  redirectUri: http://localhost:8080/callback
-  localServerPort: 8080
-  channelId: 9ffb4fca465c96f69499a315e8ffd653
-  isAuthenticated: 0
-  isConnected: 0
-  onMessage:
-    m_PersistentCalls:
-      m_Calls: []
-  onSubscription:
-    m_PersistentCalls:
-      m_Calls: []
---- !u!4 &56467673
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 56467671}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 982.71735, y: 36.79842, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 1383005442}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &62592030
 GameObject:
@@ -2166,6 +2109,75 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 594313068}
   m_CullTransparentMesh: 1
+--- !u!1 &668190220
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 668190221}
+  - component: {fileID: 668190222}
+  m_Layer: 0
+  m_Name: ChzzkOfficial
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &668190221
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 668190220}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1383005442}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &668190222
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 668190220}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29e6ec4e402ef6b459574c9ec0ae8654, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ChzzkOfficialClient
+  clientId: 03a562cc-6c49-4379-8ea5-d125b6d90127
+  clientSecret: YAYWO79gobVd6Wa-ktinQKSGIoAXTMObMP5W5RU633o
+  redirectUri: http://localhost:8080/callback
+  localServerPort: 8080
+  channelId: 9ffb4fca465c96f69499a315e8ffd653
+  isAuthenticated: 0
+  isConnected: 0
+  onMessage:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 40442727}
+        m_TargetAssemblyTypeName: ChzzkParticipantManager, Assembly-CSharp
+        m_MethodName: OnChatMessageReceived
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  onSubscription:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &680397029
 GameObject:
   m_ObjectHideFlags: 0
@@ -4124,55 +4136,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: -20, y: -20}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!1 &1073848250
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1073848252}
-  - component: {fileID: 1073848251}
-  m_Layer: 0
-  m_Name: ChzzkManagerReal
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1073848251
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1073848250}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e0a3fd605f836c8429582e931ad9e90b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ChzzkManager
-  officialClient: {fileID: 56467672}
-  participantManager: {fileID: 40442727}
-  autoStartLogin: 1
-  loginButton: {fileID: 0}
-  statusText: {fileID: 0}
---- !u!4 &1073848252
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1073848250}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 982.71735, y: 36.79842, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1140828003
 GameObject:
   m_ObjectHideFlags: 0
@@ -4783,6 +4746,39 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1361935445}
   m_CullTransparentMesh: 1
+--- !u!1 &1383005441
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1383005442}
+  m_Layer: 0
+  m_Name: GameObject
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1383005442
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1383005441}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 982.71735, y: 36.79842, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 40442728}
+  - {fileID: 668190221}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1461866463
 GameObject:
   m_ObjectHideFlags: 0
@@ -7655,10 +7651,8 @@ SceneRoots:
   - {fileID: 889521511}
   - {fileID: 1864988941}
   - {fileID: 2144531357}
-  - {fileID: 40442728}
   - {fileID: 1767329592}
   - {fileID: 1478582950}
   - {fileID: 1824525969}
   - {fileID: 795928061}
-  - {fileID: 56467673}
-  - {fileID: 1073848252}
+  - {fileID: 1383005442}
