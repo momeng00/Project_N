@@ -357,7 +357,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ChzzkOfficialClient
   clientId: 03a562cc-6c49-4379-8ea5-d125b6d90127
-  clientSecret: YAYWO79gobVd6Wa-ktinQKSGIoAXTMObMP5W5RU633o
+  clientSecret: dyB0MCpPZcwN0mdiYVagIauCpqX9inGYykBZNBiFqAY
   redirectUri: http://localhost:8080/callback
   localServerPort: 8080
   channelId: 9ffb4fca465c96f69499a315e8ffd653
