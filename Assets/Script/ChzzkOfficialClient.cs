@@ -1,7 +1,10 @@
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using SocketIOClient;
+using SocketIOClient.Newtonsoft.Json;
 using SocketIOClient.Transport;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.NetworkInformation;
@@ -59,7 +62,10 @@ public class ChzzkOfficialClient : MonoBehaviour
 
     [Serializable]
     public class ProfileSubscriptionEvent : UnityEngine.Events.UnityEvent<ChzzkUnity.Profile, ChzzkUnity.SubscriptionExtras> { }
-    
+    void Update()
+    {
+        // SocketIOUnity는 자동으로 처리하므로 비워둠
+    }
     /// <summary>
     /// 1단계: OAuth 인증 시작
     /// </summary>
@@ -206,16 +212,16 @@ public class ChzzkOfficialClient : MonoBehaviour
     ""state"":""{state}"",
     ""redirectUri"": ""http://localhost:8080/callback""
         }}";
-        
+
         UnityWebRequest request = new UnityWebRequest(url, "POST");
         request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
         byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
-        
+
         request.uploadHandler = new UploadHandlerRaw(bodyRaw);
         request.downloadHandler = new DownloadHandlerBuffer();
 
         request.SetRequestHeader("Content-Type", "application/json");
-        
+
         var operation = request.SendWebRequest();
 
         while (!operation.isDone)
@@ -345,11 +351,8 @@ public class ChzzkOfficialClient : MonoBehaviour
 
     string NormalizeSessionUrl(string url)
     {
-        // 🔥 :443 제거 (필요한 경우만)
-        if (url.Contains(":443"))
-            url = url.Replace(":443", "");
-
-        return url;
+        // :443 제거하지 마세요!
+        return url;  // 그대로 반환
     }
     #endregion
     /// <summary>
@@ -358,31 +361,126 @@ public class ChzzkOfficialClient : MonoBehaviour
     async Task ConnectSocket()
     {
         Debug.Log($"[SocketIO] 연결 시도: {sessionUrl}");
-
+        sessionUrl = sessionUrl.Replace("https:", "wss:");
         var uri = new Uri(sessionUrl);
-
-        string baseUrl = $"{uri.Scheme}://{uri.Host}";
-        string auth = uri.Query; // "?auth=..."
-
-        string fullUrl = baseUrl + auth;
-
-        Debug.Log($" 강제 URL: {fullUrl}");
-
-        socket = new SocketIO(fullUrl, new SocketIOOptions
+        string serverUrl = uri.Scheme + "://" + uri.Host + ":" + uri.Port;
+        var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        string authToken = queryParams["auth"];
+        if (string.IsNullOrEmpty(authToken))
         {
+            Debug.LogError("authToken비어있음");
+        }
+        if (socket != null) { }
+        socket = new SocketIOUnity(new Uri(serverUrl), new SocketIOOptions
+        {
+            Query = new Dictionary<string, string> { { "auth", authToken }, },
+            EIO = SocketIOClient.EngineIO.V3,
+            Transport = SocketIOClient.Transport.TransportProtocol.WebSocket,
             Reconnection = false,
-
-            Path = "",
-
-            AutoUpgrade = false
+            ConnectionTimeout = TimeSpan.FromMilliseconds(3000)
         });
+        socket.JsonSerializer = new NewtonsoftJsonSerializer();
 
+        socket.On("SYSTEM", (ev) =>
+        {
+            try
+            {
+                string evString = ev.GetValue<string>();
+
+                JObject json = JObject.Parse(evString);
+
+                string type = json["type"]?.ToString() ?? "";
+
+                switch (type)
+                {
+                    case "connected":
+                        {
+                            string parsedSessionkey = json["data"]?["sessionKey"]?.ToString();
+                            if (string.IsNullOrEmpty(parsedSessionkey) == false)
+                            {
+                                sessionKey = parsedSessionkey;
+                            }
+                            else
+                            {
+                                Debug.Log("연결은 되었지만 key가 안나옴");
+                            }
+                            break;
+                        }
+                    case "subscibed": break;
+                    case "unsubscibed": break;
+                    case "revoked": break;
+                }
+            }
+            catch (Exception ex)
+            {
+            }
+        });
+        socket.On("CHAT", (ev) =>
+        {
+            try
+            {
+                Debug.Log($"[RAW CHAT] {ev}");
+
+                // JSON 문자열로 변환
+                string jsonString = ev.GetValue<string>();
+                Debug.Log($"[JSON STRING] {jsonString}");
+
+                // JSON 파싱
+                ChatMessageData chatData = JsonUtility.FromJson<ChatMessageData>(jsonString);
+
+                // ✅ 상세 정보 출력
+                Debug.Log("========== 채팅 메시지 수신 ==========");
+                Debug.Log($"📌 채널 ID: {chatData.channelId}");
+                Debug.Log($"👤 작성자 채널 ID: {chatData.senderChannelId}");
+                Debug.Log($"👤 닉네임: {chatData.profile.nickname}");
+                Debug.Log($"✅ 인증 마크: {chatData.profile.verifiedMark}");
+                Debug.Log($"🎖️ 역할: {chatData.userRoleCode}");
+                Debug.Log($"💬 메시지: {chatData.content}");
+                Debug.Log($"🕐 시간: {chatData.messageTime}");
+
+                // 배지 출력
+                if (chatData.profile.badges != null && chatData.profile.badges.Length > 0)
+                {
+                    Debug.Log($"🏅 배지 개수: {chatData.profile.badges.Length}");
+                    foreach (var badge in chatData.profile.badges)
+                    {
+                        Debug.Log($"  - {badge.badgeId}: {badge.imageUrl}");
+                    }
+                }
+
+                // 이모티콘 출력
+                if (chatData.emojis != null && chatData.emojis.Count > 0)
+                {
+                    Debug.Log($"😀 이모티콘 개수: {chatData.emojis.Count}");
+                    foreach (var emoji in chatData.emojis)
+                    {
+                        Debug.Log($"  - {emoji.Key}: {emoji.Value}");
+                    }
+                }
+
+                Debug.Log("====================================");
+
+                // 기존 ProcessMessage 호출
+                ProcessMessage(jsonString);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"❌ CHAT 파싱 에러: {ex.Message}");
+                Debug.LogError($"스택: {ex.StackTrace}");
+            }
+        });
         socket.OnConnected += async (sender, e) =>
         {
             Debug.Log("✅ Socket.IO 연결 성공!");
-            await SubscribeChatEvents();
-        };
+            Debug.Log("[SocketIO] ConnectAsync 시작");
 
+
+            isConnected = true;
+        };
+        socket.OnReconnectAttempt += (sender, e) =>
+        {
+            StartCoroutine(CSubscribeChatEvents());
+        };
         socket.OnError += (sender, e) =>
         {
             Debug.LogError($"❌ Socket.IO 에러: {e}");
@@ -391,23 +489,19 @@ public class ChzzkOfficialClient : MonoBehaviour
         socket.OnDisconnected += (sender, e) =>
         {
             Debug.Log("🔌 Socket.IO 종료");
+            isConnected = false;
         };
-
-        Debug.Log("[SocketIO] ConnectAsync 시작");
 
         try
         {
-            Debug.Log(" ConnectAsync 호출 직전");
-
             await socket.ConnectAsync();
+            Debug.Log("✅ ConnectAsync 성공");
 
-            Debug.Log(" ConnectAsync 호출 이후 (여기 찍히면 성공)");
+            await SubscribeChatEvents();
         }
         catch (Exception ex)
         {
-            Debug.LogError("❌ ConnectAsync 내부에서 터짐!");
-            Debug.LogError($"타입: {ex.GetType()}");
-            Debug.LogError($"메시지: {ex.Message}");
+            Debug.LogError($"❌ 연결 실패: {ex.Message}");
             Debug.LogError($"스택: {ex.StackTrace}");
         }
     }
@@ -419,17 +513,12 @@ public class ChzzkOfficialClient : MonoBehaviour
     {
         Debug.Log("=== 5단계: 채팅 이벤트 구독 ===");
 
-        string url = $"https://api.chzzk.naver.com/open/v1/sessions/{sessionKey}/subscriptions/chat";
-
-        // ✅ 채널 ID 포함
-        string json = $"{{\"channelId\":\"{channelId}\"}}";
-        byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
-
+        string url = $"https://openapi.chzzk.naver.com/open/v1/sessions/events/subscribe/chat?sessionKey={sessionKey}";
         using (UnityWebRequest request = new UnityWebRequest(url, "POST"))
         {
-            request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-            request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Authorization", $"Bearer {accessToken}");
+            request.SetRequestHeader("Client-Id", clientId);
+            request.SetRequestHeader("Client-Secret", clientSecret);
             request.SetRequestHeader("Content-Type", "application/json");
 
             var operation = request.SendWebRequest();
@@ -440,12 +529,39 @@ public class ChzzkOfficialClient : MonoBehaviour
             if (request.result == UnityWebRequest.Result.Success)
             {
                 Debug.Log($"✅ 채팅 이벤트 구독 완료!");
-                Debug.Log($"응답: {request.downloadHandler.text}");
             }
             else
             {
                 Debug.LogError($"구독 실패: {request.error}");
-                Debug.LogError($"응답: {request.downloadHandler.text}");
+            }
+        }
+    }
+    IEnumerator CSubscribeChatEvents()
+    {
+        Debug.Log("=== 5단계: 채팅 이벤트 구독 ===");
+
+        string url = $"https://openapi.chzzk.naver.com/open/v1/sessions/events/subscribe/chat?sessionKey={sessionKey}";
+
+        using (UnityWebRequest request = new UnityWebRequest(url, "POST"))
+        {
+            request.SetRequestHeader("Authorization", $"Bearer {accessToken}");
+            request.SetRequestHeader("Client-Id", clientId);
+            request.SetRequestHeader("Client-Secret", clientSecret);
+            request.SetRequestHeader("Content-Type", "application/json");
+
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                Debug.Log($"✅ 채팅 이벤트 구독 완료!");
+                Debug.Log($"응답: {request.downloadHandler.text}");
+            }
+            else
+            {
+                Debug.LogError($"❌ 구독 실패!");
+                Debug.LogError($"Error: {request.error}");
+                Debug.LogError($"Response Code: {request.responseCode}");
+                Debug.LogError($"Response: {request.downloadHandler.text}");
             }
         }
     }
@@ -514,7 +630,7 @@ public class ChzzkOfficialClient : MonoBehaviour
     class TokenResponse
     {
         public string code;
-        public string message;  
+        public string message;
         public TokenContent content; // message 아예 제거
     }
     [Serializable]
@@ -545,5 +661,32 @@ public class ChzzkOfficialClient : MonoBehaviour
         public string nickname;
         public string userRoleCode;
         public string badge;
+    }
+
+    [Serializable]
+    public class ChatMessageData
+    {
+        public string channelId;
+        public string senderChannelId;
+        public ProfileDataa profile;
+        public string userRoleCode;
+        public string content;
+        public Dictionary<string, string> emojis;
+        public long messageTime;
+    }
+
+    [Serializable]
+    public class ProfileDataa
+    {
+        public string nickname;
+        public BadgeData[] badges;
+        public bool verifiedMark;
+    }
+
+    [Serializable]
+    public class BadgeData
+    {
+        public string badgeId;
+        public string imageUrl;
     }
 }
