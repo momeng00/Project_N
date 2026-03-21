@@ -1,5 +1,6 @@
-using NativeWebSocket;
+using Newtonsoft.Json;
 using SocketIOClient;
+using SocketIOClient.Transport;
 using System;
 using System.Collections.Generic;
 using System.Net;
@@ -205,7 +206,7 @@ public class ChzzkOfficialClient : MonoBehaviour
     ""state"":""{state}"",
     ""redirectUri"": ""http://localhost:8080/callback""
         }}";
-
+        
         UnityWebRequest request = new UnityWebRequest(url, "POST");
         request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
         byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
@@ -214,6 +215,7 @@ public class ChzzkOfficialClient : MonoBehaviour
         request.downloadHandler = new DownloadHandlerBuffer();
 
         request.SetRequestHeader("Content-Type", "application/json");
+        
         var operation = request.SendWebRequest();
 
         while (!operation.isDone)
@@ -221,16 +223,22 @@ public class ChzzkOfficialClient : MonoBehaviour
 
         Debug.Log($"Response Code: {request.responseCode}");
         Debug.Log($"Response: {request.downloadHandler.text}");
+        Debug.Log($"? {request.result} ");
+
         if (request.result == UnityWebRequest.Result.Success)
         {
             Debug.Log("응답 성공! 파싱 시도...");
 
             try
             {
-                var response = JsonUtility.FromJson<TokenResponse>(request.downloadHandler.text);
-
+                Debug.Log($"json: {json}");
+                Debug.Log($"real: {request.downloadHandler.text}");
+                var response = JsonConvert.DeserializeObject<TokenResponse>(request.downloadHandler.text);
+                Debug.Log($"response null? {response == null}");
+                Debug.Log($"content null? {response?.content == null}");
+                Debug.Log($"?? {response.content.accessToken}");
                 // ✅ content 안에 토큰이 있음!
-                if (response.code == 200 && response.content != null)
+                if (response.content != null)
                 {
                     accessToken = response.content.accessToken;
                     refreshToken = response.content.refreshToken;
@@ -239,7 +247,6 @@ public class ChzzkOfficialClient : MonoBehaviour
                     Debug.Log($"✅ Access Token: {accessToken.Substring(0, Math.Min(20, accessToken.Length))}...");
                     Debug.Log($"✅ Token Type: {response.content.tokenType}");
                     Debug.Log($"✅ Expires In: {response.content.expiresIn}초");
-                    Debug.Log($"✅ Scope: {response.content.scope}");
 
                     // 3단계: 세션 생성
                     await CreateSession();
@@ -273,6 +280,7 @@ public class ChzzkOfficialClient : MonoBehaviour
         using (UnityWebRequest request = UnityWebRequest.Get(url))
         {
             //  필수 헤더
+            //request.SetRequestHeader("Authorization", $"Bearer {accessToken}");
             request.SetRequestHeader("Client-Id", clientId);
             request.SetRequestHeader("Client-Secret", clientSecret);
             request.SetRequestHeader("Content-Type", "application/json");
@@ -347,39 +355,61 @@ public class ChzzkOfficialClient : MonoBehaviour
     /// <summary>
     /// 4단계: Socket.IO 연결
     /// </summary>
-    WebSocket websocket;
-
     async Task ConnectSocket()
     {
-        string url = sessionUrl; // 그대로 사용
-        Debug.Log($"[WS] 연결 시도: {url}");
+        Debug.Log($"[SocketIO] 연결 시도: {sessionUrl}");
 
-        websocket = new WebSocket(url);
+        var uri = new Uri(sessionUrl);
 
-        websocket.OnOpen += async () =>
+        string baseUrl = $"{uri.Scheme}://{uri.Host}";
+        string auth = uri.Query; // "?auth=..."
+
+        string fullUrl = baseUrl + auth;
+
+        Debug.Log($" 강제 URL: {fullUrl}");
+
+        socket = new SocketIO(fullUrl, new SocketIOOptions
         {
-            Debug.Log("✅ WebSocket 연결 성공!");
+            Reconnection = false,
+
+            Path = "",
+
+            AutoUpgrade = false
+        });
+
+        socket.OnConnected += async (sender, e) =>
+        {
+            Debug.Log("✅ Socket.IO 연결 성공!");
             await SubscribeChatEvents();
         };
 
-        websocket.OnError += (e) =>
+        socket.OnError += (sender, e) =>
         {
-            Debug.LogError($"❌ WebSocket 에러: {e}");
+            Debug.LogError($"❌ Socket.IO 에러: {e}");
         };
 
-        websocket.OnClose += (e) =>
+        socket.OnDisconnected += (sender, e) =>
         {
-            Debug.Log("🔌 WebSocket 종료");
+            Debug.Log("🔌 Socket.IO 종료");
         };
 
-        websocket.OnMessage += (bytes) =>
+        Debug.Log("[SocketIO] ConnectAsync 시작");
+
+        try
         {
-            string message = System.Text.Encoding.UTF8.GetString(bytes);
-            Debug.Log($"📩 메시지: {message}");
-        };
+            Debug.Log(" ConnectAsync 호출 직전");
 
-        await websocket.Connect();
+            await socket.ConnectAsync();
 
+            Debug.Log(" ConnectAsync 호출 이후 (여기 찍히면 성공)");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("❌ ConnectAsync 내부에서 터짐!");
+            Debug.LogError($"타입: {ex.GetType()}");
+            Debug.LogError($"메시지: {ex.Message}");
+            Debug.LogError($"스택: {ex.StackTrace}");
+        }
     }
 
     /// <summary>
@@ -477,21 +507,20 @@ public class ChzzkOfficialClient : MonoBehaviour
         public string accessToken;
         public string refreshToken;
         public string tokenType;
-        public int expiresIn;
-        public string scope;
+        public string expiresIn;
     }
     // JSON 구조체
     [Serializable]
     class TokenResponse
     {
-        public int code;
-        public string message;
-        public TokenContent content;
+        public string code;
+        public string message;  
+        public TokenContent content; // message 아예 제거
     }
     [Serializable]
     class SessionResponse
     {
-        public int code;
+        public string code;
         public string message;
         public SessionContent content;
     }
