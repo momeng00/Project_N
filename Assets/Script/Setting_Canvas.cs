@@ -10,15 +10,10 @@ public class Setting_Canvas : MonoBehaviour
     public ChzzkParticipantManager participantManager;
     public TMP_Text log;
     public TMP_InputField test_count;
-    private CanvasGroup canvasGroup;
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        canvasGroup = GetComponent<CanvasGroup>();
-        gameObject.GetComponent<Image>().raycastTarget = false;
-        canvasGroup.alpha = 0;
-        canvasGroup.interactable = false;
-        canvasGroup.blocksRaycasts = false;
+        CloseMonitor();
     }
 
     // Update is called once per frame
@@ -26,21 +21,19 @@ public class Setting_Canvas : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.Escape))
         {
-            if (gameObject.GetComponent<Image>().raycastTarget)
-            {
-                gameObject.GetComponent<Image>().raycastTarget = false;
-                canvasGroup.alpha = 0;
-                canvasGroup.interactable = false;
-                canvasGroup.blocksRaycasts = false;
-            }
-            else
-            {
-                gameObject.GetComponent<Image>().raycastTarget = true;
-                canvasGroup.alpha = 1;
-                canvasGroup.interactable = true;
-                canvasGroup.blocksRaycasts = true;
-            }
+            CloseMonitor();
         }
+    }
+
+    public void CloseMonitor()
+    {
+        gameObject.GetComponent<Image>().raycastTarget = false;
+        gameObject.SetActive(false);
+    }
+    public void OpenMonitor()
+    {
+        gameObject.GetComponent<Image>().raycastTarget = true;
+        gameObject.SetActive(true);
     }
     public void OnTestBTN()
     {

@@ -6,12 +6,14 @@ using SocketIOClient.Transport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.UI;
 
 /// <summary>
 /// 치지직 공식 API를 사용하는 OAuth 클라이언트
@@ -56,15 +58,28 @@ public class ChzzkOfficialClient : MonoBehaviour
     // ChzzkUnity와 호환되는 이벤트
     public ProfileMessageEvent onMessage = new ProfileMessageEvent();
     public ProfileSubscriptionEvent onSubscription = new ProfileSubscriptionEvent();
-
+    private HashSet<string> subscribers = new HashSet<string>();
     [Serializable]
     public class ProfileMessageEvent : UnityEngine.Events.UnityEvent<ChzzkUnity.Profile, string> { }
 
     [Serializable]
     public class ProfileSubscriptionEvent : UnityEngine.Events.UnityEvent<ChzzkUnity.Profile, ChzzkUnity.SubscriptionExtras> { }
+    private Queue<Action> mainThreadActions = new Queue<Action>();
+    private void Start()
+    {
+        string path = Path.Combine(Application.persistentDataPath, "response.txt");
+        string path2 = Path.Combine(Application.persistentDataPath, "totalPages.txt");
+        File.WriteAllText(path, "");
+        File.WriteAllText(path2, "");
+    }
+    // ✅ Update에서 처리
     void Update()
     {
-        // SocketIOUnity는 자동으로 처리하므로 비워둠
+        // 메인 스레드에서 실행할 작업 처리
+        while (mainThreadActions.Count > 0)
+        {
+            mainThreadActions.Dequeue()?.Invoke();
+        }
     }
     /// <summary>
     /// 1단계: OAuth 인증 시작
@@ -184,8 +199,8 @@ public class ChzzkOfficialClient : MonoBehaviour
     void SendBrowserResponse(HttpListenerContext context, bool success)
     {
         string responseString = success
-            ? "<html><body><h2>로그인 성공! 창을 닫아주세요.</h2></body></html>"
-            : "<html><body><h2>로그인 실패</h2></body></html>";
+            ? "<html><body><h2>Login Success! Close the Window.</h2></body></html>"
+            : "<html><body><h2>Fail to Login</h2></body></html>";
 
         byte[] buffer = System.Text.Encoding.UTF8.GetBytes(responseString);
 
@@ -421,60 +436,50 @@ public class ChzzkOfficialClient : MonoBehaviour
             {
                 Debug.Log($"[RAW CHAT] {ev}");
 
-                // JSON 문자열로 변환
                 string jsonString = ev.GetValue<string>();
-                Debug.Log($"[JSON STRING] {jsonString}");
 
-                // JSON 파싱
-                ChatMessageData chatData = JsonUtility.FromJson<ChatMessageData>(jsonString);
+                // JSON 파싱 (백그라운드 스레드에서 가능)
+                ChatMessageData chatData = JsonConvert.DeserializeObject<ChatMessageData>(jsonString);
 
-                // ✅ 상세 정보 출력
-                Debug.Log("========== 채팅 메시지 수신 ==========");
-                Debug.Log($"📌 채널 ID: {chatData.channelId}");
-                Debug.Log($"👤 작성자 채널 ID: {chatData.senderChannelId}");
-                Debug.Log($"👤 닉네임: {chatData.profile.nickname}");
-                Debug.Log($"✅ 인증 마크: {chatData.profile.verifiedMark}");
-                Debug.Log($"🎖️ 역할: {chatData.userRoleCode}");
-                Debug.Log($"💬 메시지: {chatData.content}");
-                Debug.Log($"🕐 시간: {chatData.messageTime}");
-
-                // 배지 출력
-                if (chatData.profile.badges != null && chatData.profile.badges.Length > 0)
+                // ✅ 메인 스레드로 전달
+                mainThreadActions.Enqueue(() =>
                 {
-                    Debug.Log($"🏅 배지 개수: {chatData.profile.badges.Length}");
-                    foreach (var badge in chatData.profile.badges)
+                    try
                     {
-                        Debug.Log($"  - {badge.badgeId}: {badge.imageUrl}");
-                    }
-                }
+                        Debug.Log("========== 채팅 메시지 수신 ==========");
+                        Debug.Log($"👤 닉네임: {chatData.profile.nickname}");
+                        Debug.Log($"💬 메시지: {chatData.content}");
+                        Debug.Log("====================================");
 
-                // 이모티콘 출력
-                if (chatData.emojis != null && chatData.emojis.Count > 0)
-                {
-                    Debug.Log($"😀 이모티콘 개수: {chatData.emojis.Count}");
-                    foreach (var emoji in chatData.emojis)
+                        // ChzzkUnity.Profile 변환
+                        ChzzkUnity.Profile profile = new ChzzkUnity.Profile
+                        {
+                            userIdHash = chatData.senderChannelId ?? "unknown",
+                            nickname = chatData.profile.nickname ?? "Unknown",
+                            userRoleCode = chatData.userRoleCode ?? "common_user",
+                            badge = chatData.profile.verifiedMark ? "verified" : ""
+                        };
+
+                        // ✅ 메인 스레드에서 이벤트 발생
+                        onMessage?.Invoke(profile, chatData.content);
+
+                        Debug.Log($"✅ onMessage 이벤트 발생: [{profile.nickname}] {chatData.content}");
+                    }
+                    catch (Exception ex)
                     {
-                        Debug.Log($"  - {emoji.Key}: {emoji.Value}");
+                        Debug.LogError($"메인 스레드 처리 에러: {ex.Message}");
                     }
-                }
-
-                Debug.Log("====================================");
-
-                // 기존 ProcessMessage 호출
-                ProcessMessage(jsonString);
+                });
             }
             catch (Exception ex)
             {
                 Debug.LogError($"❌ CHAT 파싱 에러: {ex.Message}");
-                Debug.LogError($"스택: {ex.StackTrace}");
             }
         });
         socket.OnConnected += async (sender, e) =>
         {
             Debug.Log("✅ Socket.IO 연결 성공!");
             Debug.Log("[SocketIO] ConnectAsync 시작");
-
-
             isConnected = true;
         };
         socket.OnReconnectAttempt += (sender, e) =>
@@ -496,7 +501,7 @@ public class ChzzkOfficialClient : MonoBehaviour
         {
             await socket.ConnectAsync();
             Debug.Log("✅ ConnectAsync 성공");
-
+            await GetUserInfo();
             await SubscribeChatEvents();
         }
         catch (Exception ex)
@@ -532,10 +537,11 @@ public class ChzzkOfficialClient : MonoBehaviour
             }
             else
             {
-                Debug.LogError($"구독 실패: {request.error}");
+                Application.Quit();
             }
         }
     }
+
     IEnumerator CSubscribeChatEvents()
     {
         Debug.Log("=== 5단계: 채팅 이벤트 구독 ===");
@@ -605,6 +611,210 @@ public class ChzzkOfficialClient : MonoBehaviour
         }
     }
 
+
+    void SaveToFile(string content, string fileName)
+    {
+        string path = Path.Combine(Application.persistentDataPath, fileName);
+        
+        File.AppendAllText(path, content);
+        Debug.Log("테스트 : 파일 저장");
+        Debug.Log($"📁 파일 저장 완료: {path}");
+    }
+    async Task GetUserInfo()
+    {
+        string url = $"https://openapi.chzzk.naver.com/open/v1/channels/subscribers?&size=50&sort=LONGER";
+
+        using (UnityWebRequest request = UnityWebRequest.Get(url))
+        {
+            request.SetRequestHeader("Authorization", $"Bearer {accessToken}");
+            request.SetRequestHeader("Content-Type", "application/json");
+            var operation = request.SendWebRequest();
+            while (!operation.isDone)
+                await Task.Yield();
+
+            Debug.Log($"Response Code: {request.responseCode}");
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                string responseText = request.downloadHandler.text;
+                await ParseAndSaveSubscribersAsync(responseText);
+                Debug.Log("✅ 성공!");
+                Debug.Log($"응답: {responseText}");
+
+                // 🔥 파일 저장
+                SaveToFile(responseText, "response.txt");
+            }
+            else
+            {
+                Debug.LogError($"잠깐!!!! ❌ 실패: {request.error}");
+            }
+        }
+    }
+    async Task GetUserInfo(string num)
+    {
+        string url = $"https://openapi.chzzk.naver.com/open/v1/channels/subscribers?&page={num}&size=50&sort=LONGER";
+
+        using (UnityWebRequest request = UnityWebRequest.Get(url))
+        {
+            request.SetRequestHeader("Authorization", $"Bearer {accessToken}");
+            request.SetRequestHeader("Content-Type", "application/json");
+            var operation = request.SendWebRequest();
+            while (!operation.isDone)
+                await Task.Yield();
+
+            Debug.Log($"Response Code: {request.responseCode}");
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                string responseText = request.downloadHandler.text;
+                ExtraParseAndSaveSubscribers(responseText);
+                Debug.Log("✅ 성공!");
+                Debug.Log($"응답: {responseText}");
+
+                // 파일 저장
+                SaveToFile(responseText, "response.txt");
+                
+            }
+            else
+            {
+                Debug.LogError($"잠깐!!!! ❌ 실패: {request.error}");
+            }
+        }
+    }
+    public IEnumerator CGetUserInfo()
+    {
+        Debug.Log("테스트 2 테스트 시작");
+        string url = $"https://openapi.chzzk.naver.com/open/v1/channels/subscribers?&size=50&sort=LONGER";
+
+        using (UnityWebRequest request = UnityWebRequest.Get(url))
+        {
+            request.SetRequestHeader("Authorization", $"Bearer {accessToken}");
+            request.SetRequestHeader("Content-Type", "application/json");
+
+            yield return request.SendWebRequest();
+
+            Debug.Log($"Response Code: {request.responseCode}");
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                string responseText = request.downloadHandler.text;
+                Task task = ParseAndSaveSubscribersAsync(responseText);
+                Debug.Log("✅ 성공!");
+                Debug.Log($"응답: {responseText}");
+
+                // 🔥 파일 저장
+                SaveToFile(responseText, "response.txt");
+            }
+            else
+            {
+                Debug.LogError($"잠깐!!!! ❌ 실패: {request.error}");
+            }
+        }
+    }
+    public IEnumerator CGetUserInfo(string num)
+    {
+        Debug.Log("테스트 : 진입 성공");
+        string url = $"https://openapi.chzzk.naver.com/open/v1/channels/subscribers?&page={num}&size=50&sort=LONGER";
+
+        using (UnityWebRequest request = UnityWebRequest.Get(url))
+        {
+            request.SetRequestHeader("Authorization", $"Bearer {accessToken}");
+            request.SetRequestHeader("Content-Type", "application/json");
+
+            yield return request.SendWebRequest();
+
+            Debug.Log($"Response Code: {request.responseCode}");
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                string responseText = request.downloadHandler.text;
+                subscribers.Clear();
+                ExtraParseAndSaveSubscribers(responseText);
+                Debug.Log("✅ 성공!");
+                Debug.Log($"응답: {responseText}");
+                Debug.Log("테스트 : 파일 저장 시작");
+                // 🔥 파일 저장
+                SaveToFile(responseText, "response.txt");
+            }
+            else
+            {
+                Debug.LogError($"잠깐!!!! ❌ 실패: {request.error}");
+            }
+        }
+    }
+    async Task ParseAndSaveSubscribersAsync(string jsonData)
+    {
+        try
+        {
+            // Newtonsoft.Json 사용
+            SubscriberResponse response = JsonConvert.DeserializeObject<SubscriberResponse>(jsonData);
+
+            if (response.code != 200 || response.content == null)
+            {
+                Debug.LogError("구독자 데이터가 없습니다.");
+                return;
+            }
+
+            foreach (var subscriber in response.content.data)
+            {
+                subscribers.Add(subscriber.channelId);
+                Debug.Log($"✅ 구독자 추가: {subscriber.channelName} (ID: {subscriber.channelId}, {subscriber.month}개월)");
+            }
+
+            Debug.Log($"========== 구독자 저장 완료 ==========");
+            Debug.Log($"총 구독자 수: {subscribers.Count}명");
+            Debug.Log($"전체 구독자: {response.content.totalCount}명");
+            Debug.Log("====================================");
+            for (int i = 0; i < response.content.totalPages; i++)
+            {
+                SaveToFile($"\n호출 {response.content.page} : ", "totalPages.txt");
+                SaveToFile(response.content.totalPages.ToString(),"totalPages.txt");
+                await GetUserInfo(i.ToString());
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"❌ 파싱 에러: {ex.Message}");
+            Debug.LogError($"스택: {ex.StackTrace}");
+        }
+    }
+
+
+    void ExtraParseAndSaveSubscribers(string jsonData)
+    {
+        try
+        {
+            // Newtonsoft.Json 사용
+            SubscriberResponse response = JsonConvert.DeserializeObject<SubscriberResponse>(jsonData);
+
+            if (response.code != 200 || response.content == null)
+            {
+                Debug.LogError("구독자 데이터가 없습니다.");
+                return;
+            }
+            SaveToFile(response.content.totalPages.ToString(), "test.txt");
+            foreach (var subscriber in response.content.data)
+            {
+                subscribers.Add(subscriber.channelId);
+                Debug.Log($"✅ 구독자 추가: {subscriber.channelName} (ID: {subscriber.channelId}, {subscriber.month}개월)");
+            }
+
+            Debug.Log($"========== 구독자 저장 완료 ==========");
+            Debug.Log($"총 구독자 수: {subscribers.Count}명");
+            Debug.Log($"전체 구독자: {response.content.totalCount}명");
+            Debug.Log("====================================");
+
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"❌ 파싱 에러: {ex.Message}");
+            Debug.LogError($"스택: {ex.StackTrace}");
+        }
+    }
+    public bool IsSubscriber(string channelId)
+    {
+        return subscribers.Contains(channelId);
+    }
     void OnDestroy()
     {
         if (socket != null)
@@ -646,7 +856,32 @@ public class ChzzkOfficialClient : MonoBehaviour
         public string url;  // ← url!
     }
 
+    [Serializable]
+    public class SubscriberResponse
+    {
+        public int code;
+        public string message;
+        public SubscriberContent content;
+    }
 
+    [Serializable]
+    public class SubscriberContent
+    {
+        public int page;
+        public int totalCount;
+        public int totalPages;
+        public SubscriberData[] data;
+    }
+
+    [Serializable]
+    public class SubscriberData
+    {
+        public string channelId;
+        public string channelName;
+        public int month;
+        public int tierNo;
+        public string createdDate;
+    }
     [Serializable]
     class ChatMessage
     {

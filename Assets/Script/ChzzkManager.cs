@@ -26,47 +26,14 @@ public class ChzzkManager : MonoBehaviour
 
     void Start()
     {
-        // 컴포넌트 자동 탐색
-        if (officialClient == null)
-        {
-            officialClient = GetComponent<ChzzkOfficialClient>();
-        }
-
-        if (participantManager == null)
-        {
-            participantManager = GetComponent<ChzzkParticipantManager>();
-        }
-
-        // 검증
-        if (officialClient == null)
-        {
-            Debug.LogError("ChzzkOfficialClient를 찾을 수 없습니다!");
-            return;
-        }
-
-        if (participantManager == null)
-        {
-            Debug.LogError("ChzzkParticipantManager를 찾을 수 없습니다!");
-            return;
-        }
-
-        // ✅ 이벤트 연결!
-        ConnectEvents();
-
-        // UI 설정
-        if (loginButton != null)
-        {
-            loginButton.onClick.AddListener(OnLoginButtonClicked);
-        }
+        // ✅ 이벤트 연결
+        //officialClient.onMessage.AddListener(participantManager.OnChatMessageReceived);
 
         // 자동 로그인
         if (autoStartLogin)
         {
-            Debug.Log("자동 로그인 시작...");
             officialClient.StartOAuthLogin();
         }
-
-        Debug.Log("✅ ChzzkManager 초기화 완료!");
     }
 
     /// <summary>
@@ -75,8 +42,8 @@ public class ChzzkManager : MonoBehaviour
     void ConnectEvents()
     {
         // ✅ 공식 API 클라이언트의 이벤트를 참여자 매니저로 전달!
-        officialClient.onMessage.AddListener(participantManager.OnChatMessageReceived);
-        officialClient.onSubscription.AddListener(participantManager.OnSubscriptionReceived);
+        //officialClient.onMessage.AddListener(participantManager.OnChatMessageReceived);
+        //officialClient.onSubscription.AddListener(participantManager.OnSubscriptionReceived);
 
         Debug.Log("✅ 이벤트 연결 완료:");
         Debug.Log("  - officialClient.onMessage → participantManager.OnChatMessageReceived");

@@ -27,9 +27,6 @@ public class ChzzkParticipantManager : MonoBehaviour
     [Header("치지직 연결 설정 (기존)")]
     public ChzzkUnity chzzkClient;
 
-    [Header("OAuth 연결 설정 (비공식)")]
-    public ChzzkoauthClient oauthClient;
-
     [Header("공식 API 연결 설정 (권장!)")]
     public ChzzkOfficialClient officialClient;
 
@@ -60,12 +57,11 @@ public class ChzzkParticipantManager : MonoBehaviour
     [Tooltip("참여자 UI가 표시될 부모 Transform")]
     public Transform participantContainer;
 
-    [Tooltip("당첨자 UI가 표시될 부모 Transform")]
-    public Transform winnerContainer;
+
 
     [Tooltip("당첨자 모니터 윈도우 (선택사항)")]
     public WinnerMonitor winnerMonitorWindow;
-
+    public Setting_Canvas settingMonitor;
     [Header("디버그")]
     [Tooltip("Profile 정보 자동 출력 (디버깅용)")]
     public bool debugProfileInfo = false;
@@ -91,6 +87,13 @@ public class ChzzkParticipantManager : MonoBehaviour
     {
         InitializeClient();
     }
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            settingMonitor.OpenMonitor();
+        }
+    }
 
     /// <summary>
     /// 클라이언트 초기화
@@ -101,10 +104,6 @@ public class ChzzkParticipantManager : MonoBehaviour
         {
             case ClientType.ChzzkUnity:
                 InitializeChzzkClient();
-                break;
-
-            case ClientType.OAuth:
-                InitializeOAuthClient();
                 break;
 
             case ClientType.Official:
@@ -126,30 +125,12 @@ public class ChzzkParticipantManager : MonoBehaviour
 
         Debug.Log("ChzzkUnity 방식으로 연결합니다.");
 
-        chzzkClient.onMessage.AddListener(OnChatMessageReceived);
-        chzzkClient.onSubscription.AddListener(OnSubscriptionReceived);
+        //chzzkClient.onMessage.AddListener(OnChatMessageReceived);
+        //chzzkClient.onSubscription.AddListener(OnSubscriptionReceived);
         chzzkClient.Connect();
     }
 
-    /// <summary>
-    /// OAuth 클라이언트 초기화 (비공식)
-    /// </summary>
-    void InitializeOAuthClient()
-    {
-        if (oauthClient == null)
-        {
-            Debug.LogError("OAuth Client가 설정되지 않았습니다!");
-            return;
-        }
-
-        Debug.Log("OAuth 방식으로 연결합니다 (비공식).");
-
-        oauthClient.onMessage.AddListener(OnChatMessageReceived);
-        oauthClient.onSubscription.AddListener(OnSubscriptionReceived);
-
-        // OAuth는 수동 로그인 필요
-        // oauthClient.StartOAuthLogin();
-    }
+    
 
     /// <summary>
     /// 공식 API 클라이언트 초기화 (권장!)
@@ -228,8 +209,6 @@ public class ChzzkParticipantManager : MonoBehaviour
             }
         }
 
-        if (!isRecruiting) return;
-
         if (message.Trim() == participantCommand)
         {
             AddParticipant(profile);
@@ -261,7 +240,7 @@ public class ChzzkParticipantManager : MonoBehaviour
             return;
         }
 
-        bool isSub = IsSubscriber(profile);
+        bool isSub = officialClient.IsSubscriber(profile.userIdHash);
         int tier = isSub && subscriberTiers.ContainsKey(userId) ? subscriberTiers[userId] : 0;
         string tierName = isSub && subscriberTierNames.ContainsKey(userId) ? subscriberTierNames[userId] : "";
 
@@ -405,7 +384,6 @@ public class ChzzkParticipantManager : MonoBehaviour
         ParticipantData winner = eligibleParticipants[randomIndex];
 
         winner.isWinner = true;
-        ShowWinner(winner);
 
         if (winnerMonitorWindow != null)
         {
@@ -451,8 +429,6 @@ public class ChzzkParticipantManager : MonoBehaviour
             eligibleParticipants[i].isWinner = true;
             winners.Add(eligibleParticipants[i]);
 
-            // 당첨자 UI 표시
-            ShowWinner(eligibleParticipants[i]);
 
             // 이벤트 발생
             onWinnerSelected?.Invoke(eligibleParticipants[i]);
@@ -489,22 +465,6 @@ public class ChzzkParticipantManager : MonoBehaviour
         return eligible;
     }
 
-    /// <summary>
-    /// 당첨자 UI 표시
-    /// </summary>
-    void ShowWinner(ParticipantData winner)
-    {
-        if (participantPrefab == null || winnerContainer == null) return;
-
-        GameObject winnerUI = Instantiate(participantPrefab, winnerContainer);
-
-        SimpleParticipantUI uiComponent = winnerUI.GetComponent<SimpleParticipantUI>();
-        if (uiComponent != null)
-        {
-            uiComponent.SetData(winner);
-            uiComponent.SetAsWinner(true);
-        }
-    }
 
     /// <summary>
     /// 모든 참여자 초기화
@@ -521,14 +481,6 @@ public class ChzzkParticipantManager : MonoBehaviour
             }
         }
         participantUIObjects.Clear();
-
-        if (winnerContainer != null)
-        {
-            foreach (Transform child in winnerContainer)
-            {
-                Destroy(child.gameObject);
-            }
-        }
 
         Debug.Log("모든 참여자 데이터가 초기화되었습니다.");
     }
@@ -675,11 +627,6 @@ public class ChzzkParticipantManager : MonoBehaviour
             chzzkClient.onSubscription.RemoveListener(OnSubscriptionReceived);
         }
 
-        if (oauthClient != null)
-        {
-            oauthClient.onMessage.RemoveListener(OnChatMessageReceived);
-            oauthClient.onSubscription.RemoveListener(OnSubscriptionReceived);
-        }
 
         if (officialClient != null)
         {

@@ -13,17 +13,9 @@ public class RecruitmentUIController : MonoBehaviour
     public ChzzkParticipantManager participantManager;
 
     [Header("버튼")]
-    [Tooltip("인원 모집 시작 버튼")]
-    public Button startRecruitmentButton;
-
-    [Tooltip("인원 모집 종료 버튼")]
-    public Button endRecruitmentButton;
 
     [Tooltip("랜덤 추첨 버튼 (1명)")]
     public Button drawOneButton;
-
-    [Tooltip("복수 추첨 버튼")]
-    public Button drawMultipleButton;
 
     [Tooltip("확률 검증 버튼")]
     public Button verifyProbabilityButton;
@@ -31,15 +23,15 @@ public class RecruitmentUIController : MonoBehaviour
     [Tooltip("초기화 버튼")]
     public Button clearButton;
 
+    [Tooltip("로그뽑기 버튼")]
+    public Button logButton;
+
     [Header("텍스트")]
     [Tooltip("상태 표시 텍스트")]
     public TextMeshProUGUI statusText;
 
     [Tooltip("참여자 수 표시 텍스트")]
     public TextMeshProUGUI participantCountText;
-
-    [Tooltip("복수 추첨 인원 입력 필드")]
-    public TMP_InputField multipleDrawCountInput;
 
     [Tooltip("확률 검증 횟수 입력 필드")]
     public TMP_InputField verifyCountInput;
@@ -93,6 +85,7 @@ public class RecruitmentUIController : MonoBehaviour
     void Update()
     {
         UpdateUI();
+
     }
 
     /// <summary>
@@ -114,25 +107,13 @@ public class RecruitmentUIController : MonoBehaviour
     void SetupEventListeners()
     {
         // 버튼 이벤트 연결
-        if (startRecruitmentButton != null)
-        {
-            startRecruitmentButton.onClick.AddListener(OnStartRecruitment);
-        }
-
-        if (endRecruitmentButton != null)
-        {
-            endRecruitmentButton.onClick.AddListener(OnEndRecruitment);
-        }
+      
 
         if (drawOneButton != null)
         {
             drawOneButton.onClick.AddListener(OnDrawOne);
         }
 
-        if (drawMultipleButton != null)
-        {
-            drawMultipleButton.onClick.AddListener(OnDrawMultiple);
-        }
 
         if (verifyProbabilityButton != null)
         {
@@ -241,24 +222,10 @@ public class RecruitmentUIController : MonoBehaviour
         bool isRecruiting = participantManager.IsRecruiting();
         int participantCount = participantManager.GetParticipantCount();
 
-        if (startRecruitmentButton != null)
-        {
-            startRecruitmentButton.interactable = !isRecruiting && !isDrawing;
-        }
-
-        if (endRecruitmentButton != null)
-        {
-            endRecruitmentButton.interactable = isRecruiting && !isDrawing;
-        }
 
         if (drawOneButton != null)
         {
             drawOneButton.interactable = !isRecruiting && participantCount > 0 && !isDrawing;
-        }
-
-        if (drawMultipleButton != null)
-        {
-            drawMultipleButton.interactable = !isRecruiting && participantCount > 1 && !isDrawing;
         }
 
         if (verifyProbabilityButton != null)
@@ -292,18 +259,6 @@ public class RecruitmentUIController : MonoBehaviour
         StartCoroutine(DrawWithAnimation(1));
     }
 
-    void OnDrawMultiple()
-    {
-        PlaySound(buttonClickSound);
-
-        int count = 1;
-        if (multipleDrawCountInput != null && int.TryParse(multipleDrawCountInput.text, out int inputCount))
-        {
-            count = Mathf.Max(1, inputCount);
-        }
-
-        StartCoroutine(DrawWithAnimation(count));
-    }
 
     void OnClear()
     {

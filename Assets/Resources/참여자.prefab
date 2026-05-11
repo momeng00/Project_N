@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 2324732829962864582}
   - component: {fileID: 1566733776946201918}
   - component: {fileID: 64779465391578489}
-  - component: {fileID: 2004532575313157645}
+  - component: {fileID: 3903742704158949119}
   m_Layer: 5
   m_Name: "\uCC38\uC5EC\uC790"
   m_TagString: Untagged
@@ -78,7 +78,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &2004532575313157645
+--- !u!114 &3903742704158949119
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -87,7 +87,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 3248467641591496920}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 91da10af1b83d5c479aaa7b88e6c9c45, type: 3}
+  m_Script: {fileID: 11500000, guid: 1637bd42594dceb4095a78ac0580c5ea, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SimpleParticipantUI
   nicknameText: {fileID: 5931910199467224201}
@@ -163,8 +163,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: New Text
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: b840177bddfcd704882b23188b539a9a, type: 2}
-  m_sharedMaterial: {fileID: 8105185679870809628, guid: b840177bddfcd704882b23188b539a9a, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 95b2ccda206362a4598affada6105660, type: 2}
+  m_sharedMaterial: {fileID: 8105185679870809628, guid: 95b2ccda206362a4598affada6105660, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []

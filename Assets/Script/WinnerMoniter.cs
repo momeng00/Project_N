@@ -47,25 +47,31 @@ public class WinnerMonitor : MonoBehaviour
 
     void Awake()
     {
+
+
         if (closeButton != null)
         {
-            closeButton.onClick.AddListener(CloseWindow);
+            closeButton.onClick.AddListener(CloseMonitor);
         }
         gameObject.GetComponent<Image>().raycastTarget = false;
-        gameObject.GetComponent<CanvasGroup>().alpha = 0;
-        gameObject.GetComponent<CanvasGroup>().interactable = false;
-        gameObject.GetComponent<CanvasGroup>().blocksRaycasts = false;
-    }
 
+        CloseMonitor();
+
+    }
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            CloseMonitor();
+        }
+    }
     /// <summary>
     /// 당첨자 설정 및 창 열기
     /// </summary>
     public void OpenForWinner(ParticipantData winner, ChzzkParticipantManager manager)
     {
         gameObject.GetComponent<Image>().raycastTarget = true;
-        gameObject.GetComponent<CanvasGroup>().alpha = 1;
-        gameObject.GetComponent<CanvasGroup>().interactable = true;
-        gameObject.GetComponent<CanvasGroup>().blocksRaycasts = true;
+
 
         winnerData = winner;
         participantManager = manager;
@@ -224,20 +230,19 @@ public class WinnerMonitor : MonoBehaviour
         chatMessageObjects.Clear();
     }
 
-    /// <summary>
-    /// 창 닫기
-    /// </summary>
-    public void CloseWindow()
+    public void CloseMonitor()
     {
         LeanTween.delayedCall(0.5f, () => {
             gameObject.GetComponent<Image>().raycastTarget = false;
-            gameObject.GetComponent<CanvasGroup>().alpha = 0;
-            gameObject.GetComponent<CanvasGroup>().interactable = false;
-            gameObject.GetComponent<CanvasGroup>().blocksRaycasts = false;
-            
-        });
-    }
 
+        });
+        gameObject.SetActive(false);
+    }
+    public void OpenMonitor()
+    {
+        gameObject.GetComponent<Image>().raycastTarget = true;
+        gameObject.SetActive(true);
+    }
     /// <summary>
     /// 채팅 초기화
     /// </summary>
